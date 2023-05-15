@@ -8,8 +8,14 @@ require('dotenv').config()
 
 const port = process.env.PORT || 4000;
 
-const classDataApi = process.env.BASE_URL + "/getclassdata.jsp";
+const baseUrl = process.env.BASE_URL;
+const classDataApi = baseUrl + "/getclassdata.jsp";
 const termId = "3202320";
+
+app.use('/api/test', async (req, res) => {
+    const result = await isValidSession("abcd");
+    res.send(result);
+});
 
 app.use('/api/course/:courseName/raw', async (req, res) => {
     const courseName = req.params.courseName;
@@ -123,6 +129,53 @@ function processBlock(block) {
     return newBlock;
 }
 
+async function keepAlive(jsessionId) {
+    const response = await getUrl(
+        baseUrl + `/realtime.jsp?_=${Date.now()}`, jsessionId);
+
+    console.log(response);
+
+    let cookie = response.headers['set-cookie'];
+    if (cookie === undefined) return true;
+    cookie = cookie[0];
+
+    let resJsessionId = cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'));
+
+    console.log({ resJsessionId });
+
+    return jsessionId.toLowerCase() == resJsessionId.toLowerCase();
+}
+
+// Determines whether the jsessionId is valid
+async function isValidSession(jsessionId) {
+    const result = await getAcademicPlans(jsessionId);
+    return result !== null;
+}
+
+// Fetches academic plans (currently used for session validation)
+async function getAcademicPlans(jsessionId) {
+    const response = await getUrl(
+        baseUrl + `/api/getAcademicPlans?term=${termId}`, jsessionId);
+
+    const plans = response.data[0];
+    if (plans === undefined) return null;
+    return plans;
+}
+
+// RIPPP 17.51 kB of data just to extract the user's name...
+async function getName(jsessionId) {
+    const response = await getUrl(baseUrl + '/criteria.jsp', jsessionId);
+
+    const html = response.data;
+
+    const startString = '<span class="autho_text header_invader_text_top">';
+    const startIndex = html.indexOf(startString);
+    let trimmed = html.substring(startIndex + startString.length);
+    trimmed = trimmed.substring(0, trimmed.indexOf('</span>')).trim();
+
+    return trimmed;
+}
+
 async function getClassDataXml(courseName) {
     let classUrl = getClassUrl(courseName);
 
@@ -138,6 +191,13 @@ function getClassUrl(courseName) {
     url += `&course_0_0=${courseName}`;
     url += `&t=${authParams.t}&e=${authParams.e}`;
     return url;
+}
+
+// Fetches a url with the JSESSIONID cookie set
+async function getUrl(url, jsessionId) {
+    return await axios.get(url, {
+        headers: { Cookie: `JSESSIONID=${jsessionId}` }
+    });
 }
 
 function getAuthParams() {
