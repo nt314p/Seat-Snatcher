@@ -12,8 +12,14 @@ const baseUrl = process.env.BASE_URL;
 const classDataApi = baseUrl + "/getclassdata.jsp";
 const termId = "3202320";
 
+app.use('/api/validateSession/:session', async (req, res) => {
+    const result = await isValidSession(req.params.session);
+    res.send(result);
+});
+
 app.use('/api/test', async (req, res) => {
-    const result = await isValidSession("abcd");
+    const result = await login("user", "pass");
+
     res.send(result);
 });
 
@@ -129,17 +135,34 @@ function processBlock(block) {
     return newBlock;
 }
 
+async function login(username, password) {
+    const response = await axios.post(
+        baseUrl + '/login.jsp',
+        { word1: username, word2: password, login: "" },
+        {
+            maxRedirects: 0,
+            headers: {
+                'Accept': '*/*',
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Connection': 'keep-alive'
+            }
+        });
+
+    console.log(response);
+    let cookie = parseCookie(response);
+    console.log(cookie);
+    console.log(await isValidSession(cookie));
+    return cookie;
+}
+
 async function keepAlive(jsessionId) {
     const response = await getUrl(
         baseUrl + `/realtime.jsp?_=${Date.now()}`, jsessionId);
 
     console.log(response);
 
-    let cookie = response.headers['set-cookie'];
-    if (cookie === undefined) return true;
-    cookie = cookie[0];
-
-    let resJsessionId = cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'));
+    let resJsessionId = parseCookie(response);
+    if (resJsessionId == null) return true;
 
     console.log({ resJsessionId });
 
@@ -148,6 +171,7 @@ async function keepAlive(jsessionId) {
 
 // Determines whether the jsessionId is valid
 async function isValidSession(jsessionId) {
+    if (jsessionId == null) return false;
     const result = await getAcademicPlans(jsessionId);
     return result !== null;
 }
@@ -157,6 +181,8 @@ async function getAcademicPlans(jsessionId) {
     const response = await getUrl(
         baseUrl + `/api/getAcademicPlans?term=${termId}`, jsessionId);
 
+
+    console.log(response);
     const plans = response.data[0];
     if (plans === undefined) return null;
     return plans;
@@ -198,6 +224,14 @@ async function getUrl(url, jsessionId) {
     return await axios.get(url, {
         headers: { Cookie: `JSESSIONID=${jsessionId}` }
     });
+}
+
+function parseCookie(response) {
+    let cookie = response.headers['set-cookie'];
+    if (cookie === undefined) return null;
+    cookie = cookie[0];
+
+    return cookie.substring(cookie.indexOf('=') + 1, cookie.indexOf(';'));
 }
 
 function getAuthParams() {
