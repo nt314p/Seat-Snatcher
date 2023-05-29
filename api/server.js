@@ -13,17 +13,6 @@ app.use('/api/validateSession/:session', async (req, res) => {
     res.send(result);
 });
 
-app.use('/api/test', async (req, res) => {
-    const session = await login("username", "password");
-    const name = await getName(session);
-    const isValid = await isValidSession(session);
-    const keptAlive = await keepAlive(session);
-    await logout(session);
-    const afterLogoutIsValid = await isValidSession(session);
-
-    res.send({ name, session, keptAlive, isValid, afterLogoutIsValid });
-});
-
 app.use('/api/course/:courseName/raw', async (req, res) => {
     const courseName = req.params.courseName;
     const xmlData = await getClassDataXml(courseName);

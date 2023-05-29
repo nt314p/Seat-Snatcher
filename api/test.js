@@ -1,11 +1,11 @@
-const request = require('supertest');
 const { isValidSession, login, getName, keepAlive, logout } = require('./logic.js');
 require('dotenv').config()
 
 const crypto = require('crypto');
 const algorithm = 'aes-256-ctr'
 const key = process.env.KEY;
-const iv = crypto.createHash('sha512').update(process.env.IV, 'utf-8').digest('hex').substr(0, 16);
+const iv = crypto.createHash('sha512')
+    .update(process.env.IV + process.env.USERDOMAIN, 'utf-8').digest('hex').substring(0, 16);
 
 function getPassword() {
     const decipher = crypto.createDecipheriv(algorithm, key, iv);
@@ -15,27 +15,25 @@ function getPassword() {
 }
 
 describe('Login', () => {
-    it('should return valid session with correct credentials', async () => {
-        const session = await login(process.env.USERNAME, getPassword());
-        const isValid = await isValidSession(session);
-        expect(isValid);
+    let session, isValidAfterLogin, isValidAferLogout, fullName;
+
+    beforeAll(async () => { // Jest forced my hand with this very cursed testing layout
+        session = await login(process.env.USERNAME_API, getPassword());
+        isValidAfterLogin = await isValidSession(session);
+        fullName = await getName(session);
         await logout(session);
+        isValidAferLogout = await isValidSession(session);
     });
 
-    it('should return invalid session with incorrect credentials', async () => {
-        const session = await login(process.env.USERNAME, "wrong_password123");
-        const isValid = await isValidSession(session);
-        expect(!isValid);
-        await logout(session);
+    it('should return valid session with correct credentials', () => {
+        return expect(isValidAfterLogin).toBeTruthy();
     });
-});
 
-describe('Logout', () => {
-    it('should return invalid session after logout', async () => {
-        const session = await login(process.env.USERNAME, getPassword());
-        const isValid = await isValidSession(session);
-        expect(isValid);
-        await logout(session);
-        expect(!isValid);
+    it('should return correct name after login', () => {
+        return expect(fullName).toBe(process.env.FULL_NAME);
+    });
+
+    it('should return invalid session after logout', () => {
+        return expect(isValidAferLogout).toBeFalsy();
     });
 });
