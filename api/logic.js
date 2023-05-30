@@ -1,5 +1,7 @@
 const axios = require('axios');
-require('dotenv').config()
+require('dotenv').config();
+const { createHash } = require('crypto');
+
 
 const baseUrl = process.env.BASE_URL;
 const classDataApi = baseUrl + "/getclassdata.jsp";
@@ -18,32 +20,32 @@ async function login(username, password) {
     return parseSession(response);
 }
 
-async function logout(jsessionId) {
-    await getUrl(baseUrl + '/login.jsp?logout=link', jsessionId);
+async function logout(sessionId) {
+    await getUrl(baseUrl + '/login.jsp?logout=link', sessionId);
 }
 
-async function keepAlive(jsessionId) {
-    const response = await getUrl(baseUrl + `/realtime.jsp?_=${Date.now()}`, jsessionId);
+async function keepAlive(sessionId) {
+    const response = await getUrl(baseUrl + `/realtime.jsp?_=${Date.now()}`, sessionId);
 
     // we assume that if there is no setcookie for the session,
     // the session was extended successfully
-    let resJsessionId = parseSession(response);
-    if (resJsessionId == null) return true;
+    let resSessionId = parseSession(response);
+    if (resSessionId == null) return true;
 
-    return jsessionId.toLowerCase() == resJsessionId.toLowerCase();
+    return sessionId.toLowerCase() == resSessionId.toLowerCase();
 }
 
 // Determines whether the jsessionId is valid
-async function isValidSession(jsessionId) {
-    if (jsessionId == null) return false;
-    const result = await getAcademicPlans(jsessionId);
+async function isValidSession(sessionId) {
+    if (sessionId == null) return false;
+    const result = await getAcademicPlans(sessionId);
     return result !== null;
 }
 
 // Fetches academic plans (currently used for session validation)
-async function getAcademicPlans(jsessionId) {
+async function getAcademicPlans(sessionId) {
     const response = await getUrl(
-        baseUrl + `/api/getAcademicPlans?term=${termId}`, jsessionId);
+        baseUrl + `/api/getAcademicPlans?term=${termId}`, sessionId);
 
     const plans = response.data[0];
     if (plans === undefined) return null;
@@ -51,10 +53,12 @@ async function getAcademicPlans(jsessionId) {
 }
 
 // RIPPP 17.51 kB of data just to extract the user's name...
-async function getName(jsessionId) {
-    const response = await getUrl(baseUrl + '/criteria.jsp', jsessionId);
+async function getName(sessionId) {
+    const response = await getUrl(baseUrl + '/criteria.jsp', sessionId);
 
     const html = response.data;
+
+    if (html.indexOf("Not Authenticated") !== -1) return null;
 
     const startString = '<span class="autho_text header_invader_text_top">';
     const startIndex = html.indexOf(startString);
@@ -82,12 +86,17 @@ function getClassUrl(courseName) {
 }
 
 // Fetches a url with the JSESSIONID cookie set
-async function getUrl(url, jsessionId) {
+async function getUrl(url, sessionId) {
     return await axios.get(url, {
-        headers: { Cookie: `JSESSIONID=${jsessionId}` }
+        headers: { Cookie: `JSESSIONID=${sessionId}` }
     });
 }
 
+function hashName(name) {
+    return createHash('sha256').update(name).digest('hex');
+}
+
+// Parses the session id out of a response object
 function parseSession(response) {
     let cookie = response.headers['set-cookie'];
     if (cookie === undefined) return null;
@@ -181,5 +190,5 @@ function processBlock(block) {
 
 module.exports = {
     isValidSession, login, getName, keepAlive,
-    logout, getClassDataXml, parseCourse
+    logout, getClassDataXml, parseCourse, hashName
 };

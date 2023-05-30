@@ -36,4 +36,8 @@ describe('Login', () => {
     it('should return invalid session after logout', () => {
         return expect(isValidAferLogout).toBeFalsy();
     });
+
+    it('should return no name with invalid session', () => {
+        return expect(getName("invalid_session")).resolves.toBeNull();
+    })
 });
