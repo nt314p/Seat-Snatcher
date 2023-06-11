@@ -2,7 +2,6 @@ const axios = require('axios');
 require('dotenv').config();
 const { createHash } = require('crypto');
 
-
 const baseUrl = process.env.BASE_URL;
 const classDataApi = baseUrl + "/getclassdata.jsp";
 const termId = "3202320";
@@ -40,6 +39,15 @@ async function isValidSession(sessionId) {
     if (sessionId == null) return false;
     const result = await getAcademicPlans(sessionId);
     return result !== null;
+}
+
+// Fetches the base url if the correct answer to a prompt is given
+function getBaseUrl(promptResponse) {
+    promptResponse = promptResponse.toLowerCase();
+    if (promptResponse.indexOf(process.env.PROMPT_RESPONSE) === 0) 
+        return process.env.BASE_URL;
+    
+    return "";
 }
 
 // Fetches academic plans (currently used for session validation)
@@ -190,5 +198,6 @@ function processBlock(block) {
 
 module.exports = {
     isValidSession, login, getName, keepAlive,
-    logout, getClassDataXml, parseCourse, hashName
+    logout, getClassDataXml, parseCourse, hashName,
+    getBaseUrl
 };

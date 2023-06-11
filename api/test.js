@@ -1,4 +1,4 @@
-const { isValidSession, login, getName, keepAlive, logout } = require('./logic.js');
+const { isValidSession, login, getName, getBaseUrl, logout } = require('./logic.js');
 require('dotenv').config()
 
 const crypto = require('crypto');
@@ -39,5 +39,15 @@ describe('Login', () => {
 
     it('should return no name with invalid session', () => {
         return expect(getName("invalid_session")).resolves.toBeNull();
-    })
+    });
+});
+
+describe('Base url fetch', () => {
+    it('should return base url given correct prompt response', () => {
+        expect(getBaseUrl(process.env.PROMPT_RESPONSE)).toBe(process.env.BASE_URL);
+    });
+    
+    it('should return empty string given incorrect prompt response', () => {
+        expect(getBaseUrl("invalid response")).toBe("");
+    });
 });
